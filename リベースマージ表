@@ -1,0 +1,395 @@
+# リベースとマージの結果の中身を詳しく比較
+
+## 実験: 同じ状態から始めて、結果を比較
+
+### 初期状態の準備
+
+```bash
+# リポジトリを作成
+mkdir git-test && cd git-test
+git init
+
+# 最初のコミット
+echo "# Project" > README.md
+git add README.md
+git commit -m "A: 初期コミット"
+
+# 2つ目のコミット
+echo "version: 1.0" >> README.md
+git add README.md
+git commit -m "B: バージョン追加"
+```
+
+現在の状態:
+```
+A -- B (main)
+```
+
+### ブランチを分岐
+
+```bash
+# feature ブランチ作成
+git checkout -b feature/login
+
+# feature で作業
+echo "login.js" > login.js
+git add login.js
+git commit -m "C: ログイン機能追加"
+
+echo "validation" >> login.js
+git add login.js
+git commit -m "D: バリデーション追加"
+
+# main に戻って別の作業
+git checkout main
+echo "author: Yamada" >> README.md
+git add README.md
+git commit -m "E: 作者情報追加"
+```
+
+現在の状態:
+```
+A -- B -- E (main)
+      \
+       C -- D (feature/login)
+```
+
+## パターン1: 通常のマージ
+
+```bash
+git checkout main
+git merge feature/login
+```
+
+### 結果の中身
+
+```bash
+git log --oneline --graph
+```
+
+```
+*   f1a2b3c (HEAD -> main) Merge branch 'feature/login'
+|\
+| * d4e5f6g (feature/login) D: バリデーション追加
+| * c3d4e5f C: ログイン機能追加
+* | e2f3g4h E: 作者情報追加
+|/
+* b1c2d3e B: バージョン追加
+* a0b1c2d A: 初期コミット
+```
+
+### ファイルの中身
+
+```bash
+# README.md
+# Project
+version: 1.0
+author: Yamada
+
+# login.js
+login.js
+validation
+```
+
+### コミットの詳細
+
+```bash
+git show f1a2b3c  # マージコミット
+```
+
+```
+commit f1a2b3c (HEAD -> main)
+Merge: e2f3g4h d4e5f6g
+Author: Your Name
+Date: Wed Oct 22 2025
+
+    Merge branch 'feature/login'
+```
+
+**重要ポイント:**
+- マージコミットは **2つの親** (parent) を持つ
+  - 親1: `e2f3g4h` (main の E)
+  - 親2: `d4e5f6g` (feature の D)
+- 実際のファイル変更はない（マージコミット自体は）
+- コミット C, D のハッシュは **変わらない**
+
+## パターン2: リベース
+
+まず初期状態に戻します:
+
+```bash
+git reset --hard e2f3g4h  # E の状態に戻す
+```
+
+状態を元に戻す:
+```
+A -- B -- E (main)
+      \
+       C -- D (feature/login)
+```
+
+### リベース実行
+
+```bash
+git checkout feature/login
+git rebase main
+```
+
+### 何が起きているか（内部動作）
+
+```
+1. feature/login の先端から main との分岐点を見つける
+   → 分岐点は B
+
+2. B から feature/login までのコミットを一時保存
+   → C と D を保存
+
+3. feature/login を main の先端 (E) に移動
+
+4. 保存したコミットを1つずつ再適用
+   → C' を作成（C の変更を E の上に適用）
+   → D' を作成（D の変更を C' の上に適用）
+```
+
+### 結果の中身
+
+```bash
+git log --oneline --graph
+```
+
+```
+* g5h6i7j (HEAD -> feature/login) D: バリデーション追加
+* f4g5h6i C: ログイン機能追加
+* e2f3g4h (main) E: 作者情報追加
+* b1c2d3e B: バージョン追加
+* a0b1c2d A: 初期コミット
+```
+
+### コミットハッシュの変化
+
+```bash
+# リベース前
+C: c3d4e5f
+D: d4e5f6g
+
+# リベース後
+C': f4g5h6i  # 新しいハッシュ！
+D': g5h6i7j  # 新しいハッシュ！
+```
+
+### コミットの詳細
+
+```bash
+git show g5h6i7j  # D'
+```
+
+```
+commit g5h6i7j (HEAD -> feature/login)
+Author: Your Name
+Parent: f4g5h6i    # 親は C'
+Date: Wed Oct 22 2025
+
+    D: バリデーション追加
+
+diff --git a/login.js b/login.js
+...
+```
+
+**重要ポイント:**
+- C' と D' は **新しいコミット** (ハッシュが変わる)
+- 親 (parent) が変わる
+  - 元々: C の親は B
+  - リベース後: C' の親は E
+- ファイルの変更内容は同じだが、コミット自体は別物
+
+### Fast-forward マージ
+
+```bash
+git checkout main
+git merge feature/login
+```
+
+```bash
+git log --oneline
+```
+
+```
+* g5h6i7j (HEAD -> main, feature/login) D: バリデーション追加
+* f4g5h6i C: ログイン機能追加
+* e2f3g4h E: 作者情報追加
+* b1c2d3e B: バージョン追加
+* a0b1c2d A: 初期コミット
+```
+
+**マージコミットは作られない** (一直線だから)
+
+## パターン3: スカッシュマージ
+
+再度初期状態に戻す:
+
+```bash
+git checkout main
+git reset --hard e2f3g4h
+```
+
+### スカッシュマージ実行
+
+```bash
+git merge --squash feature/login
+git status
+```
+
+```
+On branch main
+Changes to be committed:
+  (use "git reset HEAD <file>..." to unstage)
+
+	new file:   login.js
+```
+
+### 重要: まだコミットされていない
+
+```bash
+git commit -m "F: ログイン機能を実装"
+```
+
+### 結果の中身
+
+```bash
+git log --oneline
+```
+
+```
+* h6i7j8k (HEAD -> main) F: ログイン機能を実装
+* e2f3g4h E: 作者情報追加
+* b1c2d3e B: バージョン追加
+* a0b1c2d A: 初期コミット
+```
+
+### コミットの詳細
+
+```bash
+git show h6i7j8k
+```
+
+```
+commit h6i7j8k (HEAD -> main)
+Author: Your Name
+Parent: e2f3g4h    # 親は1つだけ (E)
+Date: Wed Oct 22 2025
+
+    F: ログイン機能を実装
+
+diff --git a/login.js b/login.js
+new file mode 100644
+index 0000000..abcd123
+--- /dev/null
++++ b/login.js
+@@ -0,0 +1,2 @@
++login.js
++validation
+```
+
+**重要ポイント:**
+- C と D の変更が **1つのコミット** にまとまる
+- feature/login ブランチとの関連は **完全に消える**
+- git log には C, D は表示されない
+
+## 実際のファイル差分の比較
+
+### 3つの方法すべてで最終結果は同じ
+
+```bash
+# どの方法でも
+cat README.md
+# Project
+version: 1.0
+author: Yamada
+
+cat login.js
+login.js
+validation
+```
+
+**ファイルの中身は同じだが、履歴が違う！**
+
+## コンフリクトが起きた場合
+
+両方で同じファイルを編集した例:
+
+```bash
+# main で
+echo "config: production" >> README.md
+
+# feature で
+echo "config: development" >> README.md
+```
+
+### マージでコンフリクト
+
+```bash
+git merge feature/login
+```
+
+```
+Auto-merging README.md
+CONFLICT (content): Merge conflict in README.md
+Automatic merge failed; fix conflicts and then commit the result.
+```
+
+```bash
+cat README.md
+```
+
+```
+# Project
+version: 1.0
+<<<<<<< HEAD
+config: production
+=======
+config: development
+>>>>>>> feature/login
+```
+
+**解決:**
+```bash
+# ファイルを編集して解決
+git add README.md
+git commit  # マージコミット完成
+```
+
+### リベースでコンフリクト
+
+```bash
+git rebase main
+```
+
+```
+Applying: C: ログイン機能追加
+Applying: D: バリデーション追加
+error: could not apply d4e5f6g... D: バリデーション追加
+```
+
+**解決:**
+```bash
+# ファイルを編集
+git add README.md
+git rebase --continue  # 次のコミットへ進む
+```
+
+**違い:**
+- マージ: 1回の解決で終わり
+- リベース: **各コミットごと** に解決が必要な場合がある
+
+## まとめ: 中身の違い
+
+| 項目 | 通常のマージ | リベース | スカッシュマージ |
+|------|------------|---------|----------------|
+| **コミット数** | 元のまま + マージコミット | 元のまま | 1つにまとまる |
+| **コミットハッシュ** | 変わらない | **変わる** | 新しいハッシュ |
+| **親コミット** | マージコミットは2つの親 | 親が変わる | 親は1つ |
+| **履歴の見た目** | 分岐が見える | 一直線 | 一直線 |
+| **元ブランチとの関係** | 保持される | 保持される | 消える |
+| **ファイルの最終結果** | 同じ | 同じ | 同じ |
+
+最終的な**ファイルの中身は同じ**でも、**Git の内部構造と履歴は全く違う**というのが重要なポイントです！

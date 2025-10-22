@@ -1,0 +1,547 @@
+# リベース: 統合以外の活用法
+
+リベースは **統合 (main へのマージ)** 以外にも、多くの便利な使い方があります。
+
+## 1. コミット履歴の整理・クリーンアップ
+
+### **作業途中の細かいコミットをまとめる**
+
+```bash
+# 開発中、細かくコミット
+git commit -m "ログイン画面追加"
+git commit -m "typo修正"
+git commit -m "変数名修正"
+git commit -m "またtypo"
+git commit -m "バリデーション追加"
+git commit -m "コメント追加"
+```
+
+**git log:**
+```
+* f6g7h8i コメント追加
+* e5f6g7h バリデーション追加
+* d4e5f6g またtypo
+* c3d4e5f 変数名修正
+* b2c3d4e typo修正
+* a1b2c3d ログイン画面追加
+```
+
+### **インタラクティブリベースで整理:**
+
+```bash
+git rebase -i HEAD~6  # 直近6つのコミット
+```
+
+エディタが開く:
+```
+pick a1b2c3d ログイン画面追加
+pick b2c3d4e typo修正
+pick c3d4e5f 変数名修正
+pick d4e5f6g またtypo
+pick e5f6g7h バリデーション追加
+pick f6g7h8i コメント追加
+```
+
+**整理:**
+```
+pick a1b2c3d ログイン画面追加
+fixup b2c3d4e typo修正
+fixup c3d4e5f 変数名修正
+fixup d4e5f6g またtypo
+pick e5f6g7h バリデーション追加
+squash f6g7h8i コメント追加
+```
+
+**結果:**
+```
+* g7h8i9j バリデーション追加とコメント
+* a1b2c3d ログイン画面追加
+```
+
+きれいな2つのコミットに！
+
+## 2. コミットメッセージの修正
+
+### **最新のコミットメッセージを修正**
+
+```bash
+git commit -m "ログn機能追加"  # タイポ！
+
+# 修正
+git commit --amend -m "ログイン機能追加"
+```
+
+### **過去のコミットメッセージを修正**
+
+```bash
+git log --oneline
+```
+```
+c3d4e5f テスト追加
+b2c3d4e ログn機能追加  # タイポ！
+a1b2c3d 初期コミット
+```
+
+```bash
+git rebase -i HEAD~2
+```
+
+```
+pick b2c3d4e ログn機能追加
+pick c3d4e5f テスト追加
+
+# 変更:
+reword b2c3d4e ログn機能追加
+pick c3d4e5f テスト追加
+```
+
+エディタが開いてメッセージ編集できる。
+
+## 3. コミットの順序入れ替え
+
+### **論理的な順序に並べ替え**
+
+```bash
+git log --oneline
+```
+```
+d4e5f6g ドキュメント更新
+c3d4e5f テスト追加
+b2c3d4e バグ修正
+a1b2c3d 新機能追加
+```
+
+テストは機能の後に来るべき:
+
+```bash
+git rebase -i HEAD~4
+```
+
+```
+pick a1b2c3d 新機能追加
+pick b2c3d4e バグ修正
+pick c3d4e5f テスト追加
+pick d4e5f6g ドキュメント更新
+
+# 並べ替え:
+pick a1b2c3d 新機能追加
+pick c3d4e5f テスト追加  # ←移動
+pick b2c3d4e バグ修正
+pick d4e5f6g ドキュメント更新
+```
+
+## 4. 不要なコミットの削除
+
+### **実験的なコミットを削除**
+
+```bash
+git log --oneline
+```
+```
+e5f6g7h 最終版
+d4e5f6g 実験: アプローチ3
+c3d4e5f 実験: アプローチ2
+b2c3d4e 実験: アプローチ1
+a1b2c3d 初期実装
+```
+
+実験は全部削除:
+
+```bash
+git rebase -i HEAD~5
+```
+
+```
+pick a1b2c3d 初期実装
+drop b2c3d4e 実験: アプローチ1
+drop c3d4e5f 実験: アプローチ2
+drop d4e5f6g 実験: アプローチ3
+pick e5f6g7h 最終版
+```
+
+**結果:**
+```
+* e5f6g7h 最終版
+* a1b2c3d 初期実装
+```
+
+## 5. コミットの分割
+
+### **大きすぎるコミットを分ける**
+
+```bash
+git log --oneline
+```
+```
+b2c3d4e ログインとプロフィール機能を追加  # 大きすぎる
+a1b2c3d 初期コミット
+```
+
+```bash
+git rebase -i HEAD~1
+```
+
+```
+edit b2c3d4e ログインとプロフィール機能を追加
+```
+
+**リベース中に分割:**
+
+```bash
+# 停止する
+git reset HEAD^  # コミットを取り消す（変更は残る）
+
+# ファイルを確認
+git status
+# 変更あり: login.js, profile.js
+
+# 個別にコミット
+git add login.js
+git commit -m "ログイン機能を追加"
+
+git add profile.js
+git commit -m "プロフィール機能を追加"
+
+# リベース続行
+git rebase --continue
+```
+
+**結果:**
+```
+* c3d4e5f プロフィール機能を追加
+* b2c3d4e ログイン機能を追加
+* a1b2c3d 初期コミット
+```
+
+## 6. 特定のコミットの編集
+
+### **過去のコミットに変更を追加**
+
+```bash
+git log --oneline
+```
+```
+c3d4e5f ドキュメント追加
+b2c3d4e テスト追加
+a1b2c3d ログイン機能追加  # ここに修正を追加したい
+```
+
+```bash
+git rebase -i HEAD~3
+```
+
+```
+edit a1b2c3d ログイン機能追加
+pick b2c3d4e テスト追加
+pick c3d4e5f ドキュメント追加
+```
+
+**リベース中に編集:**
+
+```bash
+# 停止する
+# ファイルを修正
+vim login.js
+
+# 変更を追加
+git add login.js
+git commit --amend --no-edit  # 既存のコミットに追加
+
+# 続行
+git rebase --continue
+```
+
+## 7. 作業ブランチの最新化（統合前）
+
+### **main の最新変更を取り込む**
+
+長期間開発している feature ブランチ:
+
+```bash
+# 1週間前
+git checkout -b feature/big-feature
+
+# 今、main が大きく進んでいる
+git checkout main
+git pull  # 50個の新しいコミット
+
+# feature を最新化
+git checkout feature/big-feature
+git rebase main
+```
+
+**理由:**
+- コンフリクトを早期発見
+- 最新の API で動作確認
+- PR 前に統合しやすくする
+
+### **定期的な最新化**
+
+```bash
+# 毎朝の習慣
+git checkout main
+git pull
+
+git checkout feature/my-work
+git rebase main  # 最新を取り込む
+
+# 作業続行
+```
+
+## 8. コミットの自動修正（Fixup）
+
+### **開発フロー**
+
+```bash
+# 1. 機能追加
+git add login.js
+git commit -m "ログイン機能追加"
+# コミット: a1b2c3d
+
+# 2. 続きの作業
+git add profile.js
+git commit -m "プロフィール機能追加"
+
+# 3. ログイン機能にバグ発見！
+vim login.js  # 修正
+
+# 4. fixup コミット作成
+git add login.js
+git commit --fixup=a1b2c3d  # a1b2c3d に統合予定
+```
+
+**git log:**
+```
+d4e5f6g fixup! ログイン機能追加
+c3d4e5f プロフィール機能追加
+a1b2c3d ログイン機能追加
+```
+
+### **自動スカッシュ**
+
+```bash
+git rebase -i --autosquash HEAD~3
+```
+
+自動的に:
+```
+pick a1b2c3d ログイン機能追加
+fixup d4e5f6g fixup! ログイン機能追加  # 自動配置
+pick c3d4e5f プロフィール機能追加
+```
+
+**結果:**
+```
+* c3d4e5f プロフィール機能追加
+* a1b2c3d ログイン機能追加  # バグ修正込み
+```
+
+## 9. 複数ブランチ間の移動
+
+### **間違ったブランチで作業した場合**
+
+```bash
+# main で作業してしまった
+git checkout main
+# ... 作業
+git add .
+git commit -m "新機能追加"
+
+# あ、feature ブランチで作業すべきだった！
+```
+
+**リベースで移動:**
+
+```bash
+# feature ブランチ作成
+git branch feature/new-work
+
+# main を元に戻す
+git reset --hard HEAD^  # 1つ前に戻す
+
+# feature に移動
+git checkout feature/new-work
+# コミットがここにある！
+```
+
+## 10. 歴史の書き換え（慎重に）
+
+### **機密情報を削除**
+
+```bash
+# パスワードをコミットしてしまった
+git log --oneline
+```
+```
+c3d4e5f 機能追加
+b2c3d4e 設定ファイル追加  # ←パスワードが含まれる
+a1b2c3d 初期コミット
+```
+
+```bash
+git rebase -i HEAD~3
+```
+
+```
+pick a1b2c3d 初期コミット
+edit b2c3d4e 設定ファイル追加  # ←編集
+pick c3d4e5f 機能追加
+```
+
+**リベース中:**
+
+```bash
+# ファイルからパスワード削除
+vim config.js  # パスワード削除
+
+git add config.js
+git commit --amend
+git rebase --continue
+```
+
+**警告:** プッシュ済みの場合は `git push --force` が必要（チームに影響）
+
+## 11. コミットの再利用
+
+### **別ブランチのコミットを取り込む**
+
+```bash
+# feature-A ブランチ
+git checkout feature-A
+git log --oneline
+```
+```
+e5f6g7h ユーティリティ関数追加  # これが欲しい
+d4e5f6g 機能A実装
+```
+
+```bash
+# feature-B ブランチにコピー
+git checkout feature-B
+git cherry-pick e5f6g7h  # コミットをコピー
+
+# または、リベースで複数取り込む
+git rebase --onto feature-B d4e5f6g e5f6g7h
+```
+
+## 12. コミットの検証・テスト
+
+### **各コミットが動作するか確認**
+
+```bash
+git rebase -i HEAD~5 --exec "npm test"
+```
+
+各コミット後に自動で `npm test` を実行:
+```
+pick a1b2c3d コミット1
+exec npm test
+pick b2c3d4e コミット2
+exec npm test
+pick c3d4e5f コミット3
+exec npm test
+```
+
+テストが失敗すると停止 → 修正できる
+
+## 実践例: PR 前の準備
+
+### **完全なワークフロー**
+
+```bash
+# 1週間の開発後
+git log --oneline
+```
+```
+j9k0l1m WIP
+i8j9k0l typo
+h7i8j9k 修正
+g6h7i8j 機能追加
+f5g6h7i 実験
+e4f5g6h もっと修正
+d3e4f5g ログイン機能
+c2d3e4f 初期実装
+```
+
+**PR 前に整理:**
+
+```bash
+# 1. インタラクティブリベース
+git rebase -i HEAD~8
+```
+
+```
+pick c2d3e4f 初期実装
+fixup d3e4f5g ログイン機能
+drop f5g6h7i 実験  # 削除
+pick g6h7i8j 機能追加
+fixup e4f5g6h もっと修正
+fixup h7i8j9k 修正
+fixup i8j9k0l typo
+fixup j9k0l1m WIP
+reword g6h7i8j 機能追加  # メッセージ改善
+```
+
+**結果:**
+```
+* m1n2o3p ユーザー認証機能を実装
+* c2d3e4f 初期実装
+```
+
+```bash
+# 2. 最新の main を取り込む
+git rebase main
+
+# 3. プッシュ
+git push origin feature/auth --force-with-lease
+
+# 4. PR 作成 → レビュー
+```
+
+## 注意点とトラブルシューティング
+
+### **リベース中にやり直したい**
+
+```bash
+git rebase --abort  # 中止
+```
+
+### **リベース後に元に戻したい**
+
+```bash
+git reflog  # 履歴確認
+```
+```
+a1b2c3d HEAD@{0}: rebase finished
+z9a0b1c HEAD@{1}: rebase: checkout main
+...
+```
+
+```bash
+git reset --hard HEAD@{1}  # リベース前に戻る
+```
+
+### **force push の安全な方法**
+
+```bash
+# ❌ 危険
+git push --force
+
+# ✅ 安全（他の人が更新してたら失敗）
+git push --force-with-lease
+```
+
+## まとめ: リベースの活用場面
+
+| 用途 | コマンド | いつ使う |
+|------|---------|---------|
+| **コミット整理** | `git rebase -i` | PR 前 |
+| **メッセージ修正** | `reword` | タイポ修正 |
+| **コミット統合** | `squash/fixup` | 細かいコミットをまとめる |
+| **コミット削除** | `drop` | 不要なコミット削除 |
+| **順序変更** | `pick` の順序 | 論理的な順序に |
+| **コミット分割** | `edit` + `reset` | 大きすぎるコミット |
+| **最新化** | `git rebase main` | 毎朝、または PR 前 |
+| **自動修正** | `--fixup` + `--autosquash` | 開発中のバグ修正 |
+
+**鉄則:** プッシュ前は自由にリベース、プッシュ後は慎重に！

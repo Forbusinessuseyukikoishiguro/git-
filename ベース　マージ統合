@@ -1,0 +1,296 @@
+# リベース・リベース統合・マージの適用例 30選
+
+## リベース (Rebase) の適用例
+
+### **1. 朝のルーチン: 最新の main を取り込む**
+```bash
+git checkout feature/my-work
+git rebase main
+```
+**目的:** 1日の始まりに最新状態で作業開始
+
+### **2. PR 前のコミット整理**
+```bash
+git rebase -i HEAD~10
+# 細かいコミットをまとめる
+```
+**目的:** レビュアーが読みやすい履歴にする
+
+### **3. タイポ修正コミットの自動統合**
+```bash
+git commit --fixup=abc123
+git rebase -i --autosquash main
+```
+**目的:** typo 修正を元のコミットに自動統合
+
+### **4. コミットメッセージの一括修正**
+```bash
+git rebase -i HEAD~5
+# reword で各メッセージを改善
+```
+**目的:** 統一されたコミットメッセージ規約に準拠
+
+### **5. 実験的コミットの削除**
+```bash
+git rebase -i HEAD~8
+# drop で不要な実験コミットを削除
+```
+**目的:** 本番に不要なコードを削除
+
+### **6. コミットの論理的順序への並べ替え**
+```bash
+git rebase -i HEAD~6
+# テストを機能実装の直後に移動
+```
+**目的:** コードレビューしやすい順序にする
+
+### **7. 長期開発ブランチの定期的な最新化**
+```bash
+# 週に1回
+git rebase main
+```
+**目的:** コンフリクトを小分けにして解決
+
+### **8. 大きなコミットを機能単位に分割**
+```bash
+git rebase -i HEAD~1
+# edit → reset HEAD^ → 個別コミット
+```
+**目的:** レビューしやすい小さな単位に分割
+
+### **9. 機密情報を含むコミットの書き換え**
+```bash
+git rebase -i HEAD~3
+# edit でパスワードを削除
+```
+**目的:** セキュリティリスクの除去
+
+### **10. 各コミットでテストを自動実行**
+```bash
+git rebase -i HEAD~5 --exec "npm test"
+```
+**目的:** すべてのコミットが正常に動作することを確認
+
+## リベース統合 (Rebase and Merge / Fast-Forward Merge) の適用例
+
+### **11. 小規模チームの feature 統合**
+```bash
+git rebase main
+git checkout main
+git merge --ff-only feature/login
+```
+**目的:** 一直線できれいな履歴を維持
+
+### **12. ホットフィックスの即座統合**
+```bash
+git checkout -b hotfix/bug
+git commit -m "緊急修正"
+git rebase main
+git checkout main
+git merge --ff-only hotfix/bug
+```
+**目的:** 素早く、履歴をシンプルに保つ
+
+### **13. 個人プロジェクトのブランチ統合**
+```bash
+git rebase main
+git push --force-with-lease
+git checkout main
+git merge --ff-only feature/new-ui
+```
+**目的:** 個人開発できれいな履歴
+
+### **14. ドキュメント更新の統合**
+```bash
+git rebase main
+git checkout main
+git merge --ff-only docs/update
+```
+**目的:** ドキュメント変更は単純に統合
+
+### **15. リファクタリングブランチの統合**
+```bash
+git rebase main
+git checkout main
+git merge --ff-only refactor/cleanup
+```
+**目的:** リファクタリングを一連の流れとして表現
+
+### **16. 実験的機能の本採用**
+```bash
+git checkout experiment/new-algo
+git rebase main
+git checkout main
+git merge --ff-only experiment/new-algo
+```
+**目的:** 実験が成功したらそのまま統合
+
+### **17. 依存関係更新の統合**
+```bash
+git rebase main
+git checkout main
+git merge --ff-only chore/update-deps
+```
+**目的:** 依存更新はシンプルに統合
+
+### **18. CI/CD パイプライン改善の統合**
+```bash
+git rebase main
+git checkout main
+git merge --ff-only ci/improve-pipeline
+```
+**目的:** インフラ変更を一直線で管理
+
+### **19. 設定変更の統合**
+```bash
+git rebase main
+git checkout main
+git merge --ff-only config/update-env
+```
+**目的:** 設定変更は履歴をシンプルに
+
+### **20. スタイル修正の統合**
+```bash
+git rebase main
+git checkout main
+git merge --ff-only style/fix-linting
+```
+**目的:** コードスタイル修正を簡潔に統合
+
+## マージ (Merge) の適用例
+
+### **21. 複数人が関わった大規模機能の統合**
+```bash
+git checkout main
+git merge --no-ff feature/payment-system
+```
+**目的:** 誰がいつ何を統合したか明確に記録
+
+### **22. リリースブランチの統合**
+```bash
+git checkout main
+git merge --no-ff release/v2.0
+```
+**目的:** リリースポイントを明示
+
+### **23. 複数ブランチの同時統合**
+```bash
+git checkout develop
+git merge feature/login feature/profile feature/search
+```
+**目的:** 関連機能をまとめて統合
+
+### **24. GitHub PR のマージ (デフォルト)**
+```bash
+# GitHub UI で "Merge pull request"
+git merge --no-ff feature/new-api
+```
+**目的:** PR の全履歴とレビュー履歴を保持
+
+### **25. 長期開発ブランチ (develop) の定期統合**
+```bash
+git checkout main
+git merge --no-ff develop
+```
+**目的:** 開発フェーズ全体を1つのマージで記録
+
+### **26. バグフィックスブランチの統合**
+```bash
+git checkout main
+git merge --no-ff bugfix/critical-issue
+```
+**目的:** バグ修正の範囲を明確に
+
+### **27. 複数コミッターによる協働ブランチ**
+```bash
+git checkout main
+git merge --no-ff team/shared-feature
+```
+**目的:** チーム作業の成果を一括記録
+
+### **28. オープンソースプロジェクトの外部コントリビューション**
+```bash
+git merge --no-ff contributor/awesome-feature
+```
+**目的:** 貢献者の履歴を完全保持
+
+### **29. Git Flow の feature → develop 統合**
+```bash
+git checkout develop
+git merge --no-ff feature/user-auth
+```
+**目的:** Git Flow 戦略に従った統合
+
+### **30. 監査が必要なプロジェクトの統合**
+```bash
+git checkout main
+git merge --no-ff --no-commit feature/security-patch
+# レビュー後
+git commit -m "Merge security patch (reviewed by: @security-team)"
+```
+**目的:** コンプライアンスのため全履歴保持
+
+---
+
+## ボーナス: 組み合わせパターン
+
+### **パターン A: GitHub Flow (スカッシュマージ)**
+```bash
+# 開発
+git checkout -b feature/payment
+git commit -m "決済API統合"
+git commit -m "テスト追加"
+git commit -m "typo修正"
+
+# PR 作成 → レビュー → GitHub で Squash and Merge
+# 結果: main に1つのきれいなコミット
+```
+
+### **パターン B: 小規模チーム (リベース + FF)**
+```bash
+git rebase main
+git checkout main
+git merge --ff-only feature/dashboard
+```
+
+### **パターン C: 大規模企業 (マージコミット)**
+```bash
+git checkout main
+git merge --no-ff feature/enterprise-sso
+# 監査証跡として全履歴保持
+```
+
+### **パターン D: ハイブリッド戦略**
+```bash
+# 個人作業: リベースで整理
+git rebase -i main
+
+# チーム統合: マージコミット
+git checkout develop
+git merge --no-ff feature/my-work
+```
+
+---
+
+## 適用場面の決定チャート
+
+```
+質問1: 共有ブランチか？
+  ├─ NO → リベース自由に使える
+  └─ YES → 質問2へ
+
+質問2: チーム規模は？
+  ├─ 1-5人 → リベース統合
+  ├─ 5-20人 → スカッシュマージ or リベース統合
+  └─ 20人以上 → マージコミット
+
+質問3: 監査要件は？
+  ├─ YES → マージコミット（全履歴保持）
+  └─ NO → リベース統合 or スカッシュマージ
+
+質問4: 履歴の可読性は？
+  ├─ 重要 → リベース統合（一直線）
+  └─ 貢献者の履歴重要 → マージコミット
+```
+
+これらの例を参考に、プロジェクトとチームに最適な戦略を選びましょう！

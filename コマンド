@@ -1,0 +1,235 @@
+# 1分でできる実演: リベース・リベース統合・マージ
+
+## 準備 (10秒)
+
+```bash
+mkdir git-demo && cd git-demo && git init
+echo "A" > file.txt && git add . && git commit -m "A"
+echo "B" >> file.txt && git add . && git commit -m "B"
+```
+
+---
+
+## パターン1: リベース (mainの上に載せる)
+
+### **実行コマンド (30秒)**
+
+```bash
+# feature ブランチ作成
+git checkout -b feature
+echo "C" >> feature.txt && git add . && git commit -m "C"
+echo "D" >> feature.txt && git add . && git commit -m "D"
+
+# main を進める
+git checkout main
+echo "E" >> file.txt && git add . && git commit -m "E"
+echo "F" >> file.txt && git add . && git commit -m "F"
+
+# リベース実行
+git checkout feature
+git rebase main
+```
+
+### **結果確認 (10秒)**
+
+```bash
+git log --oneline --graph --all
+```
+
+**出力:**
+```
+* C' (HEAD -> feature)
+* D'
+* F (main)
+* E
+* B
+* A
+```
+
+**ポイント:** 一直線、feature が main の上に
+
+---
+
+## パターン2: リベース統合
+
+### **実行コマンド (40秒)**
+
+```bash
+# 準備
+cd .. && mkdir rebase-merge && cd rebase-merge && git init
+echo "A" > f.txt && git add . && git commit -m "A"
+echo "B" >> f.txt && git add . && git commit -m "B"
+
+# feature 作成
+git checkout -b feature
+echo "C" >> f.txt && git add . && git commit -m "C"
+echo "D" >> f.txt && git add . && git commit -m "D"
+
+# main 進める
+git checkout main
+echo "E" >> f.txt && git add . && git commit -m "E"
+
+# リベース統合
+git checkout feature
+git rebase main
+git checkout main
+git merge --ff-only feature
+```
+
+### **結果確認 (10秒)**
+
+```bash
+git log --oneline --graph
+```
+
+**出力:**
+```
+* D (HEAD -> main, feature)
+* C
+* E
+* B
+* A
+```
+
+**ポイント:** 完全に一直線、main と feature が同じ位置
+
+---
+
+## パターン3: マージ
+
+### **実行コマンド (40秒)**
+
+```bash
+# 準備
+cd .. && mkdir merge-demo && cd merge-demo && git init
+echo "A" > f.txt && git add . && git commit -m "A"
+echo "B" >> f.txt && git add . && git commit -m "B"
+
+# feature 作成
+git checkout -b feature
+echo "C" >> f.txt && git add . && git commit -m "C"
+echo "D" >> f.txt && git add . && git commit -m "D"
+
+# main 進める
+git checkout main
+echo "E" >> f.txt && git add . && git commit -m "E"
+
+# マージ実行
+git merge feature -m "Merge feature"
+```
+
+### **結果確認 (10秒)**
+
+```bash
+git log --oneline --graph --all
+```
+
+**出力:**
+```
+*   M (HEAD -> main) Merge feature
+|\
+| * D (feature)
+| * C
+* | E
+|/
+* B
+* A
+```
+
+**ポイント:** 分岐が見える、マージコミット M がある
+
+---
+
+## 超高速版 (各20秒)
+
+### **リベース**
+```bash
+mkdir r1 && cd r1 && git init && echo A>f && git add . && git commit -m A && git checkout -b x && echo C>g && git add . && git commit -m C && git checkout main && echo B>>f && git add . && git commit -m B && git checkout x && git rebase main && git log --oneline --graph --all
+```
+
+### **リベース統合**
+```bash
+cd .. && mkdir r2 && cd r2 && git init && echo A>f && git add . && git commit -m A && git checkout -b x && echo C>g && git add . && git commit -m C && git checkout main && echo B>>f && git add . && git commit -m B && git checkout x && git rebase main && git checkout main && git merge --ff-only x && git log --oneline --graph
+```
+
+### **マージ**
+```bash
+cd .. && mkdir r3 && cd r3 && git init && echo A>f && git add . && git commit -m A && git checkout -b x && echo C>g && git add . && git commit -m C && git checkout main && echo B>>f && git add . && git commit -m B && git merge x -m M && git log --oneline --graph --all
+```
+
+---
+
+## 比較スクリプト (1分で3つ全部)
+
+```bash
+#!/bin/bash
+
+# リベース
+echo "=== リベース ==="
+mkdir /tmp/test1 && cd /tmp/test1
+git init -q
+echo A > f && git add . && git commit -qm A
+git checkout -qb feature
+echo C > g && git add . && git commit -qm C
+git checkout -q main
+echo B >> f && git add . && git commit -qm B
+git checkout -q feature && git rebase -q main
+git log --oneline --graph --all
+
+# リベース統合
+echo -e "\n=== リベース統合 ==="
+cd /tmp && mkdir test2 && cd test2
+git init -q
+echo A > f && git add . && git commit -qm A
+git checkout -qb feature
+echo C > g && git add . && git commit -qm C
+git checkout -q main
+echo B >> f && git add . && git commit -qm B
+git checkout -q feature && git rebase -q main
+git checkout -q main && git merge --ff-only -q feature
+git log --oneline --graph
+
+# マージ
+echo -e "\n=== マージ ==="
+cd /tmp && mkdir test3 && cd test3
+git init -q
+echo A > f && git add . && git commit -qm A
+git checkout -qb feature
+echo C > g && git add . && git commit -qm C
+git checkout -q main
+echo B >> f && git add . && git commit -qm B
+git merge -q feature -m M
+git log --oneline --graph --all
+
+# 掃除
+rm -rf /tmp/test{1,2,3}
+```
+
+このスクリプトを保存して実行:
+```bash
+chmod +x compare.sh
+./compare.sh
+```
+
+**出力例:**
+```
+=== リベース ===
+* C (HEAD -> feature)
+* B (main)
+* A
+
+=== リベース統合 ===
+* C (HEAD -> main, feature)
+* B
+* A
+
+=== マージ ===
+*   M (HEAD -> main)
+|\
+| * C (feature)
+* | B
+|/
+* A
+```
+
+**これで3つの違いが一目瞭然！**

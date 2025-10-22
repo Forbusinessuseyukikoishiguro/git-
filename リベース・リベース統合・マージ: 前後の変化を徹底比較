@@ -1,0 +1,556 @@
+# リベース・リベース統合・マージ: 前後の変化を徹底比較
+
+## 初期状態の設定
+
+すべてのパターンで同じ初期状態から始めます。
+
+### **準備**
+```bash
+# リポジトリ作成
+mkdir test-repo && cd test-repo
+git init
+
+# main ブランチで作業
+echo "Initial" > file.txt
+git add file.txt
+git commit -m "A: 初期コミット"
+
+echo "Main work 1" >> file.txt
+git add file.txt
+git commit -m "B: main作業1"
+```
+
+### **feature ブランチ作成**
+```bash
+git checkout -b feature/login
+
+echo "Login feature" >> login.js
+git add login.js
+git commit -m "C: ログイン機能"
+
+echo "Validation" >> login.js
+git add login.js
+git commit -m "D: バリデーション"
+
+echo "Error handling" >> login.js
+git add login.js
+git commit -m "E: エラー処理"
+```
+
+### **main がさらに進む**
+```bash
+git checkout main
+
+echo "Main work 2" >> file.txt
+git add file.txt
+git commit -m "F: main作業2"
+
+echo "Main work 3" >> file.txt
+git add file.txt
+git commit -m "G: main作業3"
+```
+
+### **初期状態の図**
+```
+main:    A -- B -- F -- G
+              \
+feature:       C -- D -- E
+```
+
+---
+
+## パターン1: リベース (main の上に載せる)
+
+### **操作前の状態**
+
+```bash
+git log --oneline --all --graph
+```
+
+```
+* g7h8i9j (main) G: main作業3
+* f6g7h8i F: main作業2
+| * e5f6g7h (HEAD -> feature/login) E: エラー処理
+| * d4e5f6g D: バリデーション
+| * c3d4e5f C: ログイン機能
+|/
+* b2c3d4e B: main作業1
+* a1b2c3d A: 初期コミット
+```
+
+### **リベース実行**
+
+```bash
+git checkout feature/login
+git rebase main
+```
+
+### **操作中の表示**
+
+```
+First, rewinding head to replay your work on top of it...
+Applying: C: ログイン機能
+Applying: D: バリデーション
+Applying: E: エラー処理
+```
+
+### **操作後の状態**
+
+```bash
+git log --oneline --all --graph
+```
+
+```
+* j0k1l2m (HEAD -> feature/login) E: エラー処理
+* i9j0k1l D: バリデーション
+* h8i9j0k C: ログイン機能
+* g7h8i9j (main) G: main作業3
+* f6g7h8i F: main作業2
+* b2c3d4e B: main作業1
+* a1b2c3d A: 初期コミット
+```
+
+### **変化の詳細**
+
+#### **コミットハッシュの変化**
+```bash
+# 操作前
+C: c3d4e5f
+D: d4e5f6g
+E: e5f6g7h
+
+# 操作後
+C': h8i9j0k  # 新しいハッシュ！
+D': i9j0k1l  # 新しいハッシュ！
+E': j0k1l2m  # 新しいハッシュ！
+```
+
+#### **親コミットの変化**
+```bash
+# 操作前
+git show c3d4e5f  # C のコミット
+Parent: b2c3d4e (B)
+
+# 操作後
+git show h8i9j0k  # C' のコミット
+Parent: g7h8i9j (G)  # 親が変わった！
+```
+
+#### **ファイルの内容**
+```bash
+# feature/login ブランチ
+cat file.txt
+Initial
+Main work 1
+Main work 2  # ← main の変更が含まれる
+Main work 3  # ← main の変更が含まれる
+
+cat login.js
+Login feature
+Validation
+Error handling
+```
+
+#### **ブランチの位置**
+```bash
+git branch -v
+* feature/login j0k1l2m E: エラー処理
+  main         g7h8i9j G: main作業3
+```
+
+### **構造の変化**
+
+**操作前:**
+```
+       C -- D -- E (feature/login)
+      /
+A -- B -- F -- G (main)
+```
+
+**操作後:**
+```
+A -- B -- F -- G (main)
+              \
+               C' -- D' -- E' (feature/login)
+```
+
+---
+
+## パターン2: リベース統合 (Rebase + Fast-Forward Merge)
+
+### **操作前の状態**
+
+初期状態に戻して:
+```
+main:    A -- B -- F -- G
+              \
+feature:       C -- D -- E
+```
+
+### **ステップ1: リベース**
+
+```bash
+git checkout feature/login
+git rebase main
+```
+
+**結果:**
+```
+A -- B -- F -- G (main)
+              \
+               C' -- D' -- E' (feature/login)
+```
+
+### **ステップ2: Fast-Forward Merge**
+
+```bash
+git checkout main
+git merge --ff-only feature/login
+```
+
+### **操作中の表示**
+
+```
+Updating g7h8i9j..j0k1l2m
+Fast-forward
+ login.js | 3 +++
+ 1 file changed, 3 insertions(+)
+ create mode 100644 login.js
+```
+
+### **操作後の状態**
+
+```bash
+git log --oneline --graph
+```
+
+```
+* j0k1l2m (HEAD -> main, feature/login) E: エラー処理
+* i9j0k1l D: バリデーション
+* h8i9j0k C: ログイン機能
+* g7h8i9j G: main作業3
+* f6g7h8i F: main作業2
+* b2c3d4e B: main作業1
+* a1b2c3d A: 初期コミット
+```
+
+### **変化の詳細**
+
+#### **ブランチの移動**
+```bash
+# 操作前
+main:           g7h8i9j (G)
+feature/login:  j0k1l2m (E')
+
+# 操作後
+main:           j0k1l2m (E')  # main が前進
+feature/login:  j0k1l2m (E')  # 同じ位置
+```
+
+#### **マージコミットの有無**
+```bash
+git log --merges
+# 出力なし（マージコミットは作られない）
+```
+
+#### **履歴の形**
+```
+A -- B -- F -- G -- C' -- D' -- E' (main, feature/login)
+
+完全に一直線！
+```
+
+### **構造の変化**
+
+**操作前（リベース後）:**
+```
+A -- B -- F -- G (main)
+              \
+               C' -- D' -- E' (feature/login)
+```
+
+**操作後:**
+```
+A -- B -- F -- G -- C' -- D' -- E' (main, feature/login)
+```
+
+---
+
+## パターン3: 通常のマージ (Merge Commit)
+
+### **操作前の状態**
+
+初期状態に戻す:
+```
+main:    A -- B -- F -- G
+              \
+feature:       C -- D -- E
+```
+
+```bash
+git log --oneline --all --graph
+```
+
+```
+* g7h8i9j (main) G: main作業3
+* f6g7h8i F: main作業2
+| * e5f6g7h (feature/login) E: エラー処理
+| * d4e5f6g D: バリデーション
+| * c3d4e5f C: ログイン機能
+|/
+* b2c3d4e B: main作業1
+* a1b2c3d A: 初期コミット
+```
+
+### **マージ実行**
+
+```bash
+git checkout main
+git merge feature/login
+```
+
+### **操作中の表示**
+
+```
+Merge made by the 'ort' strategy.
+ login.js | 3 +++
+ 1 file changed, 3 insertions(+)
+ create mode 100644 login.js
+```
+
+### **操作後の状態**
+
+```bash
+git log --oneline --all --graph
+```
+
+```
+*   m1n2o3p (HEAD -> main) Merge branch 'feature/login'
+|\
+| * e5f6g7h (feature/login) E: エラー処理
+| * d4e5f6g D: バリデーション
+| * c3d4e5f C: ログイン機能
+* | g7h8i9j G: main作業3
+* | f6g7h8i F: main作業2
+|/
+* b2c3d4e B: main作業1
+* a1b2c3d A: 初期コミット
+```
+
+### **変化の詳細**
+
+#### **マージコミットの詳細**
+```bash
+git show m1n2o3p
+```
+
+```
+commit m1n2o3p (HEAD -> main)
+Merge: g7h8i9j e5f6g7h
+Author: Your Name
+Date: Wed Oct 22 2025
+
+    Merge branch 'feature/login'
+```
+
+**重要:**
+- 2つの親を持つ
+  - Parent 1: g7h8i9j (G: main作業3)
+  - Parent 2: e5f6g7h (E: エラー処理)
+
+#### **コミットハッシュ**
+```bash
+# C, D, E のハッシュは変わらない！
+C: c3d4e5f (変化なし)
+D: d4e5f6g (変化なし)
+E: e5f6g7h (変化なし)
+
+# 新しいマージコミット
+M: m1n2o3p (新規作成)
+```
+
+#### **ブランチの位置**
+```bash
+git branch -v
+* main         m1n2o3p Merge branch 'feature/login'
+  feature/login e5f6g7h E: エラー処理
+```
+
+#### **ファイルの内容**
+```bash
+cat file.txt
+Initial
+Main work 1
+Main work 2
+Main work 3
+
+cat login.js
+Login feature
+Validation
+Error handling
+```
+
+### **構造の変化**
+
+**操作前:**
+```
+       C -- D -- E (feature/login)
+      /
+A -- B -- F -- G (main)
+```
+
+**操作後:**
+```
+       C -- D -- E (feature/login)
+      /         \
+A -- B -- F -- G -- M (main)
+```
+
+---
+
+## 3つの方法の完全比較表
+
+| 項目 | リベース (main の上に載せる) | リベース統合 | マージ |
+|------|--------------------------|------------|--------|
+| **コマンド** | `git rebase main` | `git rebase main` + `git merge --ff-only` | `git merge feature` |
+| **コミット数** | 変化なし (3つ) | 変化なし (3つ) | +1 (マージコミット追加で4つ) |
+| **コミットハッシュ** | C→C', D→D', E→E' (変わる) | C→C', D→D', E→E' (変わる) | C, D, E 変わらず |
+| **親コミット** | C'の親: G に変更 | C'の親: G に変更 | M の親: G と E |
+| **main の位置** | G (変化なし) | E' (前進) | M (新しいコミット) |
+| **feature の位置** | E' | E' | E (変化なし) |
+| **履歴の形** | 一直線 (分岐なし) | 一直線 (完全) | 分岐あり |
+| **マージコミット** | なし | なし | あり (M) |
+| **ファイルの最終結果** | 同じ | 同じ | 同じ |
+
+---
+
+## 視覚的な変化の比較
+
+### **リベース (main の上に載せる)**
+```
+操作前:
+    C---D---E  (feature/login)
+   /
+A---B---F---G  (main)
+
+操作後:
+            C'--D'--E'  (feature/login)
+           /
+A---B---F---G  (main)
+
+- feature が移動
+- main は動かない
+```
+
+### **リベース統合**
+```
+操作前:
+    C---D---E  (feature/login)
+   /
+A---B---F---G  (main)
+
+操作中 (リベース):
+            C'--D'--E'  (feature/login)
+           /
+A---B---F---G  (main)
+
+操作後 (FF merge):
+A---B---F---G---C'--D'--E'  (main, feature/login)
+
+- 完全に一直線
+- main が前進
+```
+
+### **マージ**
+```
+操作前:
+    C---D---E  (feature/login)
+   /
+A---B---F---G  (main)
+
+操作後:
+    C---D---E  (feature/login)
+   /         \
+A---B---F---G---M  (main)
+
+- 分岐が保持される
+- マージコミット M が作られる
+- C, D, E は変わらない
+```
+
+---
+
+## コンフリクトが起きた場合の違い
+
+### **リベース**
+```bash
+git rebase main
+# Applying: C: ログイン機能
+# Applying: D: バリデーション
+# CONFLICT (content): Merge conflict in file.txt
+# error: could not apply d4e5f6g...
+
+# 解決
+vim file.txt  # 編集
+git add file.txt
+git rebase --continue  # 次のコミット (E) へ進む
+# 場合によっては E でもコンフリクト
+```
+
+**特徴:** コミットごとに解決（最大3回）
+
+### **マージ**
+```bash
+git merge feature/login
+# Auto-merging file.txt
+# CONFLICT (content): Merge conflict in file.txt
+
+# 解決
+vim file.txt
+git add file.txt
+git commit  # マージコミット完成
+```
+
+**特徴:** 1回の解決で完了
+
+---
+
+## 実際のファイル内容の変化
+
+### **すべての方法で最終結果は同じ**
+
+```bash
+# どの方法でも
+ls -la
+.git/
+file.txt
+login.js
+
+cat file.txt
+Initial
+Main work 1
+Main work 2
+Main work 3
+
+cat login.js
+Login feature
+Validation
+Error handling
+```
+
+**重要:** ファイルの最終状態は同じだが、Git の履歴構造が全く違う！
+
+---
+
+## どの方法を選ぶべきか
+
+```
+個人プロジェクト → リベース統合
+小規模チーム (1-5人) → リベース統合
+中規模チーム (5-20人) → マージ or スカッシュマージ
+大規模チーム (20人以上) → マージ
+監査が必要 → マージ
+オープンソース → マージ
+```
+
+それぞれの方法で**履歴の見え方**と**Git の内部構造**が根本的に変わりますが、**最終的なコードは同じ**になります！

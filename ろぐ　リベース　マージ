@@ -1,0 +1,265 @@
+# Git Log の見え方の違い
+
+各マージ方法で `git log` の表示がどう変わるか、具体例で説明します。
+
+## 準備: 共通の状態
+
+```bash
+# 初期状態
+A -- B (main)
+```
+
+feature ブランチで作業:
+```bash
+git checkout -b feature/login
+# 3つのコミット
+C: "ログインフォームを追加"
+D: "バリデーションを追加"  
+E: "エラーメッセージを改善"
+```
+
+同時に main も更新:
+```bash
+F: "READMEを更新" (main)
+```
+
+状態:
+```
+A -- B -- F (main)
+      \
+       C -- D -- E (feature/login)
+```
+
+## 1. 通常のマージ
+
+```bash
+git checkout main
+git merge feature/login
+```
+
+### `git log` の出力:
+```bash
+* M (HEAD -> main) Merge branch 'feature/login'
+|\
+| * E エラーメッセージを改善
+| * D バリデーションを追加
+| * C ログインフォームを追加
+* | F READMEを更新
+|/
+* B 初期コミット
+* A 最初のコミット
+```
+
+### `git log --oneline --graph`:
+```
+*   a1b2c3d (HEAD -> main) Merge branch 'feature/login'
+|\
+| * e5f6g7h エラーメッセージを改善
+| * d4e5f6g バリデーションを追加
+| * c3d4e5f ログインフォームを追加
+* | f6g7h8i READMEを更新
+|/
+* b2c3d4e 初期コミット
+* a1b2c3d 最初のコミット
+```
+
+**特徴:**
+- マージコミット M が作成される
+- 分岐が視覚的に見える
+- すべてのコミット履歴が保持される
+
+## 2. リベース後のマージ
+
+```bash
+git checkout feature/login
+git rebase main
+git checkout main
+git merge feature/login  # Fast-forward
+```
+
+### `git log` の出力:
+```bash
+* E' (HEAD -> main, feature/login) エラーメッセージを改善
+* D' バリデーションを追加
+* C' ログインフォームを追加
+* F READMEを更新
+* B 初期コミット
+* A 最初のコミット
+```
+
+### `git log --oneline --graph`:
+```
+* h8i9j0k (HEAD -> main, feature/login) エラーメッセージを改善
+* g7h8i9j バリデーションを追加
+* f6g7h8i ログインフォームを追加
+* e5f6g7h READMEを更新
+* b2c3d4e 初期コミット
+* a1b2c3d 最初のコミット
+```
+
+**特徴:**
+- 一直線の履歴
+- マージコミットなし
+- C, D, E は新しいハッシュ (C', D', E') になる
+- 分岐が見えない
+
+## 3. スカッシュマージ
+
+```bash
+git checkout main
+git merge --squash feature/login
+git commit -m "ログイン機能を実装"
+```
+
+### `git log` の出力:
+```bash
+* S (HEAD -> main) ログイン機能を実装
+* F READMEを更新
+* B 初期コミット
+* A 最初のコミット
+```
+
+### `git log --oneline`:
+```
+* s9t0u1v (HEAD -> main) ログイン機能を実装
+* e5f6g7h READMEを更新
+* b2c3d4e 初期コミット
+* a1b2c3d 最初のコミット
+```
+
+**特徴:**
+- C, D, E が1つのコミット S にまとまる
+- 最もシンプルな履歴
+- feature ブランチの詳細な履歴は main には残らない
+
+## 実際のチーム開発での比較
+
+### プロジェクト例: 3つの機能を並行開発
+
+#### **通常のマージを使用した場合**
+
+```bash
+git log --oneline --graph --all
+```
+
+```
+*   m3 (main) Merge branch 'feature/search'
+|\
+| * s3 検索結果のページング
+| * s2 検索UIを改善
+| * s1 検索機能を追加
+* |   m2 Merge branch 'feature/profile'
+|\ \
+| * | p2 プロフィール編集機能
+| * | p1 プロフィール画面を追加
+| |/
+* | m1 Merge branch 'feature/login'
+|\|
+| * l3 エラーメッセージを改善
+| * l2 バリデーションを追加
+| * l1 ログインフォームを追加
+|/
+* base 初期コミット
+```
+
+**メリット:** 各機能の開発履歴が明確に分かる
+**デメリット:** 複雑で読みにくい
+
+#### **リベースを使用した場合**
+
+```bash
+git log --oneline
+```
+
+```
+s3 (main) 検索結果のページング
+s2 検索UIを改善
+s1 検索機能を追加
+p2 プロフィール編集機能
+p1 プロフィール画面を追加
+l3 エラーメッセージを改善
+l2 バリデーションを追加
+l1 ログインフォームを追加
+base 初期コミット
+```
+
+**メリット:** きれいで読みやすい一直線
+**デメリット:** どこが機能の区切りか分かりにくい
+
+#### **スカッシュマージを使用した場合**
+
+```bash
+git log --oneline
+```
+
+```
+f3 (main) 検索機能を実装
+f2 プロフィール機能を実装
+f1 ログイン機能を実装
+base 初期コミット
+```
+
+**メリット:** 最もシンプルで機能単位が明確
+**デメリット:** 詳細な変更履歴が失われる
+
+## 便利な git log オプション
+
+### 詳細な情報を見る
+
+```bash
+# ファイルの変更を表示
+git log -p
+
+# 統計情報付き
+git log --stat
+
+# 特定のファイルの履歴
+git log -- path/to/file.js
+```
+
+### マージコミットのみ表示
+
+```bash
+git log --merges
+```
+
+### マージコミットを除外
+
+```bash
+git log --no-merges
+```
+
+### 特定期間の履歴
+
+```bash
+# 過去1週間
+git log --since="1 week ago"
+
+# 特定の日付範囲
+git log --since="2025-10-01" --until="2025-10-22"
+```
+
+### 特定の作者
+
+```bash
+git log --author="Yamada"
+```
+
+### きれいな表示形式
+
+```bash
+# カスタムフォーマット
+git log --pretty=format:"%h - %an, %ar : %s"
+
+# 出力例:
+# a1b2c3d - Yamada Taro, 2 hours ago : ログイン機能を追加
+# b2c3d4e - Suzuki Hanako, 1 day ago : README更新
+```
+
+## 推奨: チームでの使い分け
+
+- **オープンソース**: 通常のマージ（すべての貢献履歴を保持）
+- **スタートアップ**: リベース（素早く、きれいな履歴）
+- **企業開発**: スカッシュマージ（監査しやすい、機能単位が明確）
+
+どの方法を選ぶかは、チームの規模・方針・コンプライアンス要件によって決めましょう。

@@ -1,0 +1,179 @@
+# Git のリベース・マージ・マージ統合の基礎と実践
+
+## 基本概念
+
+### **マージ (Merge)**
+2つのブランチの履歴を統合し、新しいマージコミットを作成します。
+- 履歴が分岐したままで、すべての変更履歴が保存される
+- 安全で元に戻しやすい
+
+### **リベース (Rebase)**
+あるブランチのコミットを別のブランチの最新状態の上に「付け替える」操作です。
+- 履歴が一直線になり、きれいに見える
+- コミット履歴を書き換える（既に共有したブランチには使わない）
+
+### **マージ統合（スカッシュマージ）**
+複数のコミットを1つにまとめてマージする方法です。
+- feature ブランチの細かいコミットが1つになる
+- main ブランチの履歴がシンプルになる
+
+## 具体的な使用例
+
+### **例1: 通常のマージ**
+```bash
+# feature ブランチで作業
+git checkout -b feature/login
+# ... コミットを重ねる
+git commit -m "ログイン画面を追加"
+git commit -m "バリデーションを追加"
+
+# main ブランチにマージ
+git checkout main
+git merge feature/login
+```
+
+**結果:** マージコミットが作成され、feature の全コミット履歴が保持されます。
+
+### **例2: リベース**
+```bash
+# main が更新された後、feature を最新化
+git checkout feature/login
+git rebase main
+
+# コンフリクトがあれば解決
+git add .
+git rebase --continue
+
+# main にマージ（Fast-forward）
+git checkout main
+git merge feature/login
+```
+
+**結果:** feature のコミットが main の最新状態の上に移動し、一直線の履歴になります。
+
+### **例3: スカッシュマージ**
+```bash
+git checkout main
+git merge --squash feature/login
+git commit -m "ログイン機能を実装"
+```
+
+**結果:** feature の複数コミットが1つにまとまって main に取り込まれます。
+
+## チーム開発での適用例
+
+### **小規模チーム（3-5人）**
+```
+戦略: リベース + Fast-forward マージ
+- きれいな一直線の履歴
+- 各メンバーが自分の feature ブランチでリベース
+```
+
+**ワークフロー:**
+```bash
+# 毎朝、最新の main を取得
+git checkout main
+git pull
+
+# feature ブランチをリベース
+git checkout feature/user-profile
+git rebase main
+
+# 作業完了後
+git checkout main
+git merge feature/user-profile  # Fast-forward
+git push
+```
+
+### **中規模チーム（10-20人）**
+```
+戦略: GitHub/GitLab の PR/MR + スカッシュマージ
+- PR でコードレビュー
+- マージ時にスカッシュして main をシンプルに
+```
+
+**ワークフロー:**
+1. Feature ブランチで開発
+2. PR を作成
+3. レビュー・修正（複数コミット OK）
+4. 承認後、スカッシュマージで main へ
+
+### **大規模チーム（20人以上）**
+```
+戦略: 通常のマージ + 保護されたブランチ
+- すべての履歴を保持（監査のため）
+- CI/CD パイプラインと統合
+- リベースは禁止（履歴の一貫性を保つ）
+```
+
+## チーム開発のベストプラクティス
+
+### **ルール1: 共有ブランチではリベースしない**
+```bash
+# ❌ ダメな例
+git checkout main
+git rebase feature/something  # main を書き換えてはいけない
+
+# ✅ 良い例
+git checkout feature/something
+git rebase main  # 自分のブランチのみリベース
+```
+
+### **ルール2: プッシュ済みコミットはリベースしない**
+```bash
+# ❌ ダメな例
+git push
+git rebase main  # 既にプッシュしたコミットを書き換え
+git push --force  # 他のメンバーに影響
+
+# ✅ 良い例
+git rebase main  # プッシュ前にリベース
+git push
+```
+
+### **ルール3: チームで統一する**
+チームで使用する戦略を決めて統一します:
+- **オプション A**: マージのみ（最も安全）
+- **オプション B**: リベース + Fast-forward（きれいな履歴）
+- **オプション C**: スカッシュマージ（シンプルな履歴）
+
+## 実践的なシナリオ
+
+### **シナリオ: 長期間の feature 開発**
+```bash
+# 1週間かけて開発中、main が更新された
+git checkout feature/payment
+git fetch origin
+
+# 定期的に main の変更を取り込む
+git rebase origin/main
+
+# コンフリクト解決
+# ... ファイルを編集
+git add .
+git rebase --continue
+
+# 完了後、プッシュ（初回 force が必要な場合あり）
+git push origin feature/payment
+```
+
+### **シナリオ: ホットフィックス**
+```bash
+# 本番で緊急のバグ発見
+git checkout main
+git checkout -b hotfix/critical-bug
+# ... 修正
+git commit -m "緊急: ログインエラーを修正"
+
+# main に直接マージ（レビュー後）
+git checkout main
+git merge hotfix/critical-bug
+git push
+
+# develop ブランチにも反映
+git checkout develop
+git merge hotfix/critical-bug
+git push
+```
+
+チーム開発では、**明確なルールを設定し、全員が同じ方針に従うこと**が最も重要です。
